@@ -30,6 +30,13 @@ namespace ApiStore.Controllers
             context.Products.Add(entity);
             context.SaveChanges();
 
+            if (model.ImagesDescIds.Any())
+            {
+                await context.ProductDescImages
+                    .Where(x => model.ImagesDescIds.Contains(x.Id))
+                    .ForEachAsync(x => x.ProductId = entity.Id);
+            }
+
             if (model.Images != null)
             {
                 var p = 1;
@@ -54,6 +61,7 @@ namespace ApiStore.Controllers
         {
             var product = context.Products
                 .Include(x=>x.ProductImages)
+                .Include(x=>x.ProductDescImages)
                 .SingleOrDefault(x => x.Id == id);
             if (product == null) return NotFound();
 
@@ -61,9 +69,90 @@ namespace ApiStore.Controllers
                 foreach (var p in product.ProductImages)
                     imageHulk.Delete(p.Image);
 
+            if (product.ProductDescImages != null)
+                foreach (var p in product.ProductDescImages)
+                    imageHulk.Delete(p.Image);
+
             context.Products.Remove(product);
             context.SaveChanges();
             return Ok();
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetProductById(int id)
+        {
+            var product = await context.Products
+                .ProjectTo<ProductItemViewModel>(mapper.ConfigurationProvider)
+                .SingleOrDefaultAsync(p => p.Id == id);
+            if (product == null) return NotFound();
+            return Ok(product);
+        }
+
+        [HttpPut]
+        public async Task<IActionResult> Edit([FromForm] ProductEditViewModel model)
+        {
+            var request = this.Request;
+            var product = await context.Products
+                .Include(p => p.ProductImages)
+                .FirstOrDefaultAsync(p => p.Id == model.Id);
+
+            mapper.Map(model, product);
+
+            var oldNameImages = model.Images.Where(x => x.ContentType.Contains("old-image"))
+                .Select(x=>x.FileName) ?? [];
+
+            var imgToDelete = product?.ProductImages?.Where(x => !oldNameImages.Contains(x.Image)) ?? [];
+            foreach(var imgDel in imgToDelete)
+            {
+                context.ProductImages.Remove(imgDel);
+                imageHulk.Delete(imgDel.Image);
+            }
+
+            if(model.Images is not null)
+            {
+                int index = 0;
+                foreach(var image in model.Images)
+                {
+                    if(image.ContentType=="old-image")
+                    {
+                        var oldImage = product?.ProductImages?.FirstOrDefault(x => x.Image == image.FileName)!;
+                        oldImage.Priority = index;
+                    }
+                    else
+                    {
+                        var imagePath = await imageHulk.Save(image);
+                        context.ProductImages.Add(new ProductImageEntity
+                        {
+                            Image = imagePath,
+                            Product = product,
+                            Priority = index
+                        });
+                    }
+                    index++;
+                }
+            }
+            await context.SaveChangesAsync();
+
+            return Ok();
+        }
+
+
+        [HttpPost("upload")]
+        public async Task<IActionResult> UploadDescImage([FromForm] ProductDescImageUploadViewModel model)
+        {
+            if (model.Image != null)
+            {
+                var pdi = new ProductDescImageEntity
+                {
+                    Image = await imageHulk.Save(model.Image),
+                    DateCreate = DateTime.Now.ToUniversalTime(),
+
+                };
+                context.ProductDescImages.Add(pdi);
+                await context.SaveChangesAsync();
+                return Ok(mapper.Map<ProductDescImageIdViewModel>(pdi));
+            }
+            return BadRequest();
         }
     }
 }

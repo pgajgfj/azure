@@ -35,7 +35,7 @@ docker run -d --restart=always --name pd322-asp_container -p 5817:8080 novakvova
 
 ```nginx options /etc/nginx/sites-available/default
 server {
-    server_name   dockerpd322.itstep.click *.dockerpd322.itstep.click;
+    server_name   azurepd322.itstep.click *.azurepd322.itstep.click;
     location / {
        proxy_pass         http://localhost:5817;
        proxy_http_version 1.1;

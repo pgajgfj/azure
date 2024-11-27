@@ -5,6 +5,9 @@ import CategoryCreatePage from "./components/category/create";
 import CategoryEditPage from "./components/category/edit";
 import ProductListPage from "./components/products/list";
 import ProductCreatePage from "./components/products/create";
+import ProductEditPage from "./components/products/edit";
+import ProductDetailPage from "./components/products/details/ProductDetailPage.tsx";
+import PostsList from "./components/post/list";
 
 export default function App() {
     return (
@@ -24,6 +27,12 @@ export default function App() {
                     <Route path={"products"}>
                         <Route index element={<ProductListPage />} />
                         <Route path="create" element={<ProductCreatePage />} />
+                        <Route path="edit/:id" element={<ProductEditPage />} />
+                        <Route path="details/:id" element={<ProductDetailPage />} />
+                    </Route>
+
+                    <Route path={"posts"}>
+                        <Route index element={<PostsList />} />
                     </Route>
 
                 </Route>
